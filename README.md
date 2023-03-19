@@ -140,10 +140,10 @@ MySQL parameters, if **all of them** are set a MySQL connector will be created:
 ## What's in the image?
 
 The image contain:
-* Alpine 3.5 (from base image `openjdk:alpine`)
-* OpenJDK 8u121 (`openjdk:alpine`)
-* Python2
-* Presto 0.167-t.0.3
+* Alpine(From bellsoft/liberica-openjdk-alpine)
+* OpenJDK 17.0.3
+* Python3
+* Trino-410
 
 The entrypoint will:
 * Configure Presto:
