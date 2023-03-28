@@ -1,13 +1,13 @@
-version: '3'
+version: '1'
 
 services:
   coordinator:
     depends_on:
-      - mysql
-    image: ${IMG_NAME}
+      - hive-metastore
+      - localstack
+    image: phaoghost/ph-presto:latest
     container_name: coordinator
     hostname: coordinator
-    domainname: ${DOMAIN}
     volumes:
       - ./data/coordinator:/root/shared
     restart: always
@@ -18,52 +18,59 @@ services:
       retries: 3
     ports:
       - 8080:8080
-    env_file:
-      - env/presto.env
-      - env/coordinator.env
-
-  worker:
+    environment:
+      HIVE_METASTORE_HOST: hive-metastore
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY_ID: ${AWS_SECRET_ACCESS_KEY_ID}
+      HIVE_METASTORE_PORT: 9083
+      HIVE_S3_HOST: localstack
+      HIVE_S3_PORT: 4566
+      
+  
+  hive-metastore:
     depends_on:
-      - coordinator
-    image: ${IMG_NAME}
-    domainname: ${DOMAIN}
-    volumes:
-      - ./data/worker:/root/shared
-    restart: always
-    healthcheck:
-      test: /etc/init.d/presto status | grep -q 'Running as'
-      interval: 5m
-      timeout: 10s
-      retries: 3
+      - postgres
+      - localstack
+      - s3_setup
+    image: naushadh/hive-metastore
+    hostname: hive-metastore
+    environment:
+      DATABASE_DB: postgres
+      DATABASE_HOST: postgres
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      S3_ENDPOINT_URL: http://localstack:4566
+      S3_BUCKET: ${HIVE_METASTORE_S3_BUCKET}
+      S3_PREFIX: ""
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY_ID}
+    env_file:
+      - env/postgres.env
+    
+  localstack:
+    image: localstack/localstack
+    hostname: localstack
+    domainname: localstack
     ports:
-      - 8080
-    environment:
-      COORDINATOR: coordinator
-    env_file:
-      - env/presto.env
-      - env/worker.env
+    - 4566:4566
 
-  cli:
+  s3_setup:
+    image: localstack/localstack
     depends_on:
-      - coordinator
-    image: ${IMG_CLI_NAME}
-    container_name: dead_presto_cli
-    hostname: dead_presto_cli
-    domainname: ${DOMAIN}
-    command: exit;
+      localstack:
+        condition: service_healthy
+    entrypoint: ["aws", "--endpoint-url", "http://localstack:4566", "s3api", "create-bucket", "--bucket", "${HIVE_METASTORE_S3_BUCKET}"]
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY_ID}
+      HIVE_METASTORE_S3_BUCKET: ${HIVE_METASTORE_S3_BUCKET}
 
-  mysql:
-    image: mysql:5.7
-    container_name: mysql
-    hostname: mysql
-    domainname: ${DOMAIN}
-    volumes:
-      - data_mysql:/var/lib/mysql
+  postgres:
+    image: postgres
+    container_name: postgres
+    hostname: postgres
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: test
-    env_file:
-      - env/mysql.env
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
-volumes:
-  data_mysql:
+

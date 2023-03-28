@@ -34,11 +34,14 @@ jvm_config() {
 
 hive_catalog_config() {
   (
-    echo "connector.name=hive-hadoop2"
+    echo "connector.name=hive"
     echo "hive.metastore.uri=thrift://${HIVE_METASTORE_HOST}:${HIVE_METASTORE_PORT}"
+    echo "hive.s3.endpoint=http://${HIVE_S3_HOST}:${HIVE_S3_PORT}"
     echo "hive.s3.aws-access-key=${AWS_ACCESS_KEY_ID}"
     echo "hive.s3.aws-secret-key=${AWS_SECRET_ACCESS_KEY_ID}"
   ) >/etc/presto/catalog/hive.properties
+#  If we use http://localstack:4566, presto will throw an host not found error when executing a query, so we need to use ip of localstack here.
+  sed -i "s/localstack/$(dig +short localstack)/g" catalog/hive.properties
 }
 
 mysql_catalog_config() {

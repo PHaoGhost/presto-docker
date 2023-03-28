@@ -1,29 +1,36 @@
 FROM bellsoft/liberica-openjdk-alpine:17.0.3
 
-LABEL Maintainer="Johandry Amador <ja186051@teradata.com>"
-LABEL Description="Presto Server"
+LABEL Maintainer="ph-sky"
+LABEL Description="Trino(Presto) Server"
 LABEL Version="0.2.0"
 
-ENV PRESTO_VERSION=410
+ENV TRINO_VERSION=410
 
-ENV PRESTO_SERVER_FILE_NAME_WITHOUT_EXTENTION=trino-server-${PRESTO_VERSION}
+ENV PRESTO_SERVER_FILE_NAME_WITHOUT_EXTENTION=trino-server-${TRINO_VERSION}
 
 ENV PRESTO_SERVER_FILE_NAME=${PRESTO_SERVER_FILE_NAME_WITHOUT_EXTENTION}.tar.gz
 
+ENV TRINO_CLI_FILE_NAME_WITHOUT_EXTENTION=trino-cli-${TRINO_VERSION}
+
+ENV TRINO_CLI_FILE_NAME=${TRINO_CLI_FILE_NAME_WITHOUT_EXTENTION}-executable.jar
+
 # ENV PRESTO_MD5SUM=d96ad91c6325834b8ed610d09af5493e
 
-# For development and to make it faster, download the tar.gz file and use COPY.
-# When ready, it's better to use ADD.
+# presto server
 # https://repo1.maven.org/maven2/io/trino/trino-server/352/trino-server-352.tar.gz
-ADD https://repo1.maven.org/maven2/io/trino/trino-server/${PRESTO_VERSION}/${PRESTO_SERVER_FILE_NAME} /tmp
-
-# COPY presto-server-${PRESTO_VERSION}.tar.gz /tmp
+ADD https://repo1.maven.org/maven2/io/trino/trino-server/${TRINO_VERSION}/${PRESTO_SERVER_FILE_NAME} /tmp
 
 # Is an upgrade required?
 #RUN apk --no-cache upgrade
 
 # Dependencies: python > 2.4 and uuidgen (in package util-linux)
 RUN apk add --no-cache python3 py-pip ca-certificates python3-dev util-linux && pip install --upgrade pip
+
+# Use dig tool to get ip of localstack and use it to configure s3 endpoint url
+RUN apk add --update bind-tools
+
+# Need less tool to execute a query for trino-cli
+RUN apk add --no-cache less
 
 RUN ln -s /usr/bin/python3 /usr/bin/python
 # Only if 'presto' user is required, install:
@@ -73,6 +80,13 @@ RUN chmod 0755 /usr/local/bin/entrypoint.sh
 COPY startup.sh /usr/local/bin/
 RUN chmod 0755 /usr/local/bin/startup.sh
 
+# install presto client
+# https://repo1.maven.org/maven2/io/trino/trino-cli/410/trino-cli-410-executable.jar 
+ADD https://repo1.maven.org/maven2/io/trino/trino-cli/${TRINO_VERSION}/${TRINO_CLI_FILE_NAME} /usr/local/bin/${TRINO_CLI_FILE_NAME_WITHOUT_EXTENTION}
+
+RUN chmod 0755 /usr/local/bin/${TRINO_CLI_FILE_NAME_WITHOUT_EXTENTION} && \
+    ln -s /usr/local/bin/${TRINO_CLI_FILE_NAME_WITHOUT_EXTENTION} /usr/local/bin/presto-cli
+    
 EXPOSE 8080
 WORKDIR /etc/presto
 
