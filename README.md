@@ -44,7 +44,11 @@ aws --endpoint-url=http://localhost:4566 s3api put-object --bucket test-data --k
 ```
 to upload data to the specified bucket.
 
-3: Use trino client to access trino server and run
+3: Use trino client to access trino server 
+```
+presto-cli --server localhost:8080 --catalog hive
+```
+and run
 ```
 CREATE SCHEMA IF NOT EXISTS hive.iris
 WITH (location = 's3a://test-data/');
